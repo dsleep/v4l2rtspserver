@@ -99,6 +99,22 @@ RTPSink*  BaseServerMediaSubsession::createSink(UsageEnvironment& env, Groupsock
 		getline(is, channels);	
 		videoSink = SimpleRTPSink::createNew(env, rtpGroupsock,rtpPayloadTypeIfDynamic, atoi(sampleRate.c_str()), "audio", "L16", atoi(channels.c_str()), True, False); 
 	}
+	//DS
+	else if (format.find("audio/L32") == 0)
+	{
+		std::istringstream is(format);
+		std::string dummy;
+		getline(is, dummy, '/');
+		getline(is, dummy, '/');
+		std::string sampleRate("44100");
+		getline(is, sampleRate, '/');
+		std::string channels("4");
+		getline(is, channels);
+		videoSink = SimpleRTPSink::createNew(env, rtpGroupsock, rtpPayloadTypeIfDynamic, atoi(sampleRate.c_str()), "audio", "L32", atoi(channels.c_str()), True, False);
+	}
+
+	
+
 	return videoSink;
 }
 
