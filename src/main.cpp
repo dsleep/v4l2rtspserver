@@ -225,27 +225,32 @@ std::string getAudioRtpFormat(snd_pcm_format_t format, int sampleRate, int chann
 	std::ostringstream os;
 	os << "audio/";
 	switch (format) {
-		case SND_PCM_FORMAT_A_LAW:
-			os << "PCMA";
+		//case SND_PCM_FORMAT_A_LAW:
+		//	os << "PCMA";
+		//	break;
+		//case SND_PCM_FORMAT_MU_LAW:
+		//	os << "PCMU";
+		//	break;
+		//case SND_PCM_FORMAT_S8:
+		//	os << "L8";
+		//	break;
+		case SND_PCM_FORMAT_S16_BE:
+		case SND_PCM_FORMAT_S16_LE:
+			os << "L16";
 			break;
-		case SND_PCM_FORMAT_MU_LAW:
-			os << "PCMU";
-			break;
-		case SND_PCM_FORMAT_S8:
-			os << "L8";
-			break;
-		case SND_PCM_FORMAT_S24_BE:
-		case SND_PCM_FORMAT_S24_LE:
-			os << "L24";
-			break;
-		case SND_PCM_FORMAT_S32_BE:
-		case SND_PCM_FORMAT_S32_LE:
-			os << "L32";
-			break;
-		case SND_PCM_FORMAT_MPEG:
-			os << "MPEG";
-			break;
+		//case SND_PCM_FORMAT_S24_BE:
+		//case SND_PCM_FORMAT_S24_LE:
+		//	os << "L24";
+		//	break;
+		//case SND_PCM_FORMAT_S32_BE:
+		//case SND_PCM_FORMAT_S32_LE:
+		//	os << "L32";
+		//	break;
+		//case SND_PCM_FORMAT_MPEG:
+		//	os << "MPEG";
+		//	break;
 		default:
+			LOG(ERROR) << "getAudioRtpFormat: INVALID AUDIO FORMAT";
 			os << "L16";
 			break;
 	}

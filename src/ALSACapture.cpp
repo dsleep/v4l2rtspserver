@@ -101,6 +101,9 @@ ALSACapture::ALSACapture(const ALSACaptureParameters & params) : m_pcm(NULL), m_
 		this->close();
 	}			
 	
+	//SR - DS
+	m_10MSBufferCache.resize((snd_pcm_format_physical_width(m_fmt) / 8) * m_params.m_channels * (m_params.m_sampleRate / 100));
+
 	LOG(NOTICE) << "ALSA device: \"" << m_params.m_devName << "\" buffer_size:" << m_bufferSize << " period_size:" << m_periodSize << " rate:" << m_params.m_sampleRate;
 }
 			
@@ -122,38 +125,75 @@ int ALSACapture::configureFormat(snd_pcm_hw_params_t *hw_params) {
 	return -1;
 }
 
+
+
+template<typename DataType, uint8_t ChannelCount>
+struct TAudioData
+{
+	struct AudioData
+	{
+		DataType Data[ChannelCount];
+	};
+	
+
+	void ConvertToINT16SingleChannel(const void *InData, int16_t *OutData, int32_t FrameCount)
+	{
+		int32_t ShiftCount = (sizeof(DataType) - sizeof(int16_t)) * 8;
+		
+		const AudioData * ptr = (AudioData*)InData;
+
+		for (int32_t Iter = 0; Iter < FrameCount; Iter++)
+		{
+			OutData[Iter] = (int16_t)(ptr[Iter].Data[0] >> ShiftCount);
+		}
+	}
+};
+
+int16_t swap_int16(int16_t val)
+{
+	return (val << 8) | ((val >> 8) & 0xFF);
+}
+
+
 size_t ALSACapture::read(char* buffer, size_t bufferSize)
 {
 	size_t size = 0;
 	int fmt_phys_width_bytes = 0;
-	if (m_pcm != 0)
-	{
-		int fmt_phys_width_bits = snd_pcm_format_physical_width(m_fmt);
-		fmt_phys_width_bytes = fmt_phys_width_bits / 8;
 
-		snd_pcm_sframes_t ret = snd_pcm_readi (m_pcm, buffer, m_periodSize*fmt_phys_width_bytes);
+	const int32_t DesiredFrameCount = (m_params.m_sampleRate / 100);
+
+	assert((int32_t)(bufferSize / sizeof(int16_t)) == DesiredFrameCount);
+	assert((int32_t)(m_10MSBufferCache.size() / (snd_pcm_format_physical_width(m_fmt) / 8) / m_params.m_channels) == DesiredFrameCount);
+
+	if (m_pcm != 0)
+	{	
+		fmt_phys_width_bytes = snd_pcm_format_physical_width(m_fmt) / 8;
+		
+		snd_pcm_sframes_t ret = snd_pcm_readi (m_pcm, m_10MSBufferCache.data(), DesiredFrameCount);
+
 		LOG(DEBUG) << "ALSA buffer in_size:" << m_periodSize*fmt_phys_width_bytes << " read_size:" << ret;
-		if (ret > 0) {
-			size = ret;				
+		if (ret > 0) 
+		{
+			assert(ret <= DesiredFrameCount);
+
+			int16_t *obuffer = (int16_t*) buffer;
+			size = ret * sizeof(int16_t);
+
+			TAudioData<int32_t, 4> DataIn;
+			DataIn.ConvertToINT16SingleChannel(m_10MSBufferCache.data(), obuffer, ret);
 			
 			// swap if capture in not in network order
-			if (!snd_pcm_format_big_endian(m_fmt)) {
-				for(unsigned int i = 0; i < size; i++){
-					char * ptr = &buffer[i * fmt_phys_width_bytes * m_params.m_channels];
-					
-					for(unsigned int j = 0; j < m_params.m_channels; j++){
-						ptr += j * fmt_phys_width_bytes;
-						for (int k = 0; k < fmt_phys_width_bytes/2; k++) {
-							char byte = ptr[k];
-							ptr[k] = ptr[fmt_phys_width_bytes - 1 - k];
-							ptr[fmt_phys_width_bytes - 1 - k] = byte; 
-						}
-					}
+			if (!snd_pcm_format_big_endian(m_fmt)) 
+			{
+				for(int32_t Iter = 0; Iter < ret; Iter++)
+				{
+					obuffer[Iter] = swap_int16(obuffer[Iter]);
 				}
 			}
 		}
 	}
-	return size * m_params.m_channels * fmt_phys_width_bytes;
+
+	return size;
 }
 		
 int ALSACapture::getFd()

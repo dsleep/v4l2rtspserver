@@ -15,9 +15,11 @@
 #define ALSA_CAPTURE
 
 #include <list>
+#include <vector>
 
 #include <alsa/asoundlib.h>
 #include "logger.h"
+#include "assert.h"
 
 struct ALSACaptureParameters 
 {
@@ -48,21 +50,27 @@ class ALSACapture
 		virtual size_t read(char* buffer, size_t bufferSize);		
 		virtual int getFd();
 		
-		virtual unsigned long getBufferSize() { return m_bufferSize; };
+		virtual unsigned long getBufferSize() { return sizeof(int16_t) * m_params.m_sampleRate / 100; };
 		virtual int getWidth()  {return -1;}
 		virtual int getHeight() {return -1;}	
 		virtual int getCaptureFormat() {return -1;}	
 		
 		unsigned long getSampleRate() { return m_params.m_sampleRate; }
-		unsigned long getChannels  () { return m_params.m_channels;   }
-		snd_pcm_format_t getFormat () { return m_fmt;                 }
 		
+		unsigned long getOrgChannels  () { return m_params.m_channels;   }
+		snd_pcm_format_t getOrgFormat () { return m_fmt;                 }
+		
+		//SR - DS
+		unsigned long getChannels() { return 1; }
+		snd_pcm_format_t getFormat() { return SND_PCM_FORMAT_S16_LE; }
+						
 	private:
 		snd_pcm_t*            m_pcm;
 		unsigned long         m_bufferSize;
 		unsigned long         m_periodSize;
 		ALSACaptureParameters m_params;
 		snd_pcm_format_t      m_fmt;
+		std::vector<uint8_t>  m_10MSBufferCache;
 };
 
 #endif
